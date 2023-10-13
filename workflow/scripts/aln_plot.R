@@ -228,11 +228,13 @@ parser <- ArgumentParser()
 parser$add_argument("-b", "--bed", help = "bedfile with alignment information")
 parser$add_argument("-t", "--threads", type = "integer", help = "number of threads")
 parser$add_argument("-p", "--prefix", help = "Prefix for the outputs")
+parser$add_argument("-o", "--output", help = "Output folder")
 args <- parser$parse_args()
 
 PRE <- args$prefix
 GLOB <- args$bed
-OUT <- glue("results/{PRE}_figures")
+OUTx <- args$output
+OUT <- glue("{OUTx}/{PRE}_figures")
 print(PRE)
 print(GLOB)
 

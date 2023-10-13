@@ -51,14 +51,14 @@ elif SLIDE > 0:
     S = config.pop("mm_s", 100)
     MAP_PARAMS = "-ax map-ont --secondary=no"
 
-if TEMP_DIR != "temp":
-    if os.path.exists("temp"):
-        if os.path.realpath("temp") == os.path.realpath(TEMP_DIR):
-            print("The temp dir has already been linked.")
+if TEMP_DIR != "temp-{SM}":
+    if os.path.exists("temp-{SM}"):
+        if os.path.realpath(f"temp-{SM}") == os.path.realpath(TEMP_DIR):
+            print("The temp-{SM} dir has already been linked.")
         else:
-            sys.exit("temp/ already in use, please move it before running.")
+            sys.exit("temp-{SM}/ already in use, please move it before running.")
     else:
-        shell("ln -s {TEMP_DIR} temp")
+        shell("ln -s {TEMP_DIR} temp-{SM}")
 
 #
 # required arguments
@@ -113,29 +113,29 @@ wildcard_constraints:
 
 rule all:
     input:
-        sort=expand("results/{SM}.{W}.{F}.sorted.bam", SM=SM, W=W, F=F),
-        beds=expand("results/{SM}.{W}.{F}.bed.gz", SM=SM, W=W, F=F),
-        fulls=expand("results/{SM}.{W}.{F}.full.tbl.gz", SM=SM, W=W, F=F),
+        sort=expand("results-{SM}/{SM}.{W}.{F}.sorted.bam", SM=SM, W=W, F=F),
+        beds=expand("results-{SM}/{SM}.{W}.{F}.bed.gz", SM=SM, W=W, F=F),
+        fulls=expand("results-{SM}/{SM}.{W}.{F}.full.tbl.gz", SM=SM, W=W, F=F),
 
 
 rule cooler:
     input:
-        cool_s=expand("results/{SM}.{W}.{F}.strand.cool", SM=SM, W=W, F=F),
-        cool_i=expand("results/{SM}.{W}.{F}.identity.cool", SM=SM, W=W, F=F),
-        cool_sm=expand("results/{SM}.{W}.{F}.strand.mcool", SM=SM, W=W, F=F),
-        cool_im=expand("results/{SM}.{W}.{F}.identity.mcool", SM=SM, W=W, F=F),
+        cool_s=expand("results-{SM}/{SM}.{W}.{F}.strand.cool", SM=SM, W=W, F=F),
+        cool_i=expand("results-{SM}/{SM}.{W}.{F}.identity.cool", SM=SM, W=W, F=F),
+        cool_sm=expand("results-{SM}/{SM}.{W}.{F}.strand.mcool", SM=SM, W=W, F=F),
+        cool_im=expand("results-{SM}/{SM}.{W}.{F}.identity.mcool", SM=SM, W=W, F=F),
 
 
 rule cooler_density:
     input:
-        cool_d=expand("results/{SM}.{W}.{CW}.density.mcool", SM=SM, W=W, CW=CW),
+        cool_d=expand("results-{SM}/{SM}.{W}.{CW}.density.mcool", SM=SM, W=W, CW=CW),
 
 
 rule make_windows:
     input:
         fai=FAI,
     output:
-        bed=temp("temp/{SM}.{W}.bed"),
+        bed=temp("temp-{SM}/{SM}.{W}.bed"),
     log:
         "logs/make_windows.{SM}.{W}.log",
     conda:
@@ -155,7 +155,7 @@ rule split_windows:
     input:
         bed=rules.make_windows.output.bed,
     output:
-        bed=temp(expand("temp/{SM}.{W}.{ID}.bed", ID=IDS, allow_missing=True)),
+        bed=temp(expand("temp-{SM}/{SM}.{W}.{ID}.bed", ID=IDS, allow_missing=True)),
     threads: 1
     conda:
         "envs/env.yaml"
@@ -176,7 +176,7 @@ rule window_fa:
         ref=FASTA,
         bed=rules.make_windows.output.bed,
     output:
-        fasta="results/{SM}.{W}.fasta",
+        fasta="results-{SM}/{SM}.{W}.fasta",
     conda:
         "envs/env.yaml"
     log:
@@ -195,7 +195,7 @@ rule split_fa:
     input:
         ref=FASTA,
     output:
-        fasta=temp("temp/{SM}.{W}.{REF_ID}.split.fasta"),
+        fasta=temp("temp-{SM}/{SM}.{W}.{REF_ID}.split.fasta"),
     conda:
         "envs/env.yaml"
     log:
@@ -215,7 +215,7 @@ rule aln_prep:
     input:
         ref=rules.split_fa.output.fasta if SLIDE > 0 else rules.window_fa.output.fasta,
     output:
-        split_ref_index=temp("temp/{SM}.{W}.{F}.{REF_ID}.fasta.mmi"),
+        split_ref_index=temp("temp-{SM}/{SM}.{W}.{F}.{REF_ID}.fasta.mmi"),
     conda:
         "envs/env.yaml"
     log:
@@ -240,9 +240,9 @@ rule aln_prep:
 rule query_prep:
     input:
         ref=FASTA,
-        bed="temp/{SM}.{W}.{ID}.bed",
+        bed="temp-{SM}/{SM}.{W}.{ID}.bed",
     output:
-        query_fasta=temp("temp/{SM}.{W}.{ID}.query.fasta"),
+        query_fasta=temp("temp-{SM}/{SM}.{W}.{ID}.query.fasta"),
     conda:
         "envs/env.yaml"
     log:
@@ -262,7 +262,7 @@ rule aln:
         split_ref=rules.aln_prep.output.split_ref_index,
         query=rules.query_prep.output.query_fasta,
     output:
-        aln=temp("temp/{SM}.{W}.{F}.{ID}.{REF_ID}.bam"),
+        aln=temp("temp-{SM}/{SM}.{W}.{F}.{ID}.{REF_ID}.bam"),
     conda:
         "envs/env.yaml"
     log:
@@ -290,13 +290,13 @@ rule aln:
 rule merge_list:
     input:
         aln=expand(
-            "temp/{SM}.{W}.{F}.{ID}.{REF_ID}.bam",
+            "temp-{SM}/{SM}.{W}.{F}.{ID}.{REF_ID}.bam",
             ID=IDS,
             REF_ID=REF_IDS,
             allow_missing=True,
         ),
     output:
-        alns=temp("temp/{SM}.{W}.{F}.list"),
+        alns=temp("temp-{SM}/{SM}.{W}.{F}.list"),
     threads: 1
     log:
         "logs/merge_list.{SM}.{W}.{F}.log",
@@ -310,13 +310,13 @@ rule merge_aln:
     input:
         alns=rules.merge_list.output.alns,
         aln=expand(
-            "temp/{SM}.{W}.{F}.{ID}.{REF_ID}.bam",
+            "temp-{SM}/{SM}.{W}.{F}.{ID}.{REF_ID}.bam",
             REF_ID=REF_IDS,
             ID=IDS,
             allow_missing=True,
         ),
     output:
-        aln=temp("temp/{SM}.{W}.{F}.bam"),
+        aln=temp("temp-{SM}/{SM}.{W}.{F}.bam"),
     conda:
         "envs/env.yaml"
     log:
@@ -335,7 +335,7 @@ rule sort_aln:
     input:
         aln=rules.merge_aln.output.aln,
     output:
-        aln="results/{SM}.{W}.{F}.sorted.bam",
+        aln="results-{SM}/{SM}.{W}.{F}.sorted.bam",
     conda:
         "envs/env.yaml"
     log:
@@ -354,7 +354,7 @@ rule identity:
     input:
         aln=rules.sort_aln.output.aln,
     output:
-        tbl=temp("temp/{SM}.{W}.{F}.tbl.gz"),
+        tbl=temp("temp-{SM}/{SM}.{W}.{F}.tbl.gz"),
     conda:
         "envs/env.yaml"
     threads: 8
@@ -380,8 +380,8 @@ rule pair_end_bed:
         tbl=rules.identity.output.tbl,
         fai=FAI,
     output:
-        bed="results/{SM}.{W}.{F}.bed.gz",
-        full="results/{SM}.{W}.{F}.full.tbl.gz",
+        bed="results-{SM}/{SM}.{W}.{F}.bed.gz",
+        full="results-{SM}/{SM}.{W}.{F}.full.tbl.gz",
     conda:
         "envs/env.yaml"
     threads: 1
@@ -409,10 +409,10 @@ rule make_R_figures:
     input:
         bed=rules.pair_end_bed.output.bed,
     output:
-        pdf="results/{SM}.{W}.{F}_figures/pdfs/{SM}.{W}.{F}.tri.TRUE__onecolorscale.FALSE__all.pdf",
+        pdf="results-{SM}/{SM}.{W}.{F}_figures/pdfs/{SM}.{W}.{F}.tri.TRUE__onecolorscale.FALSE__all.pdf",
         png=report(
             expand(
-                "results/{SM}.{W}.{F}_figures/pngs/{SM}.{W}.{F}.tri.{first}__onecolorscale.{second}__all.png",
+                "results-{SM}/{SM}.{W}.{F}_figures/pngs/{SM}.{W}.{F}.tri.{first}__onecolorscale.{second}__all.png",
                 allow_missing=True,
                 first=["TRUE", "FALSE"],
                 second=["TRUE", "FALSE"],
@@ -420,7 +420,7 @@ rule make_R_figures:
             category="figures",
         ),
         facet=report(
-            "results/{SM}.{W}.{F}_figures/pngs/{SM}.{W}.{F}.facet.all.png",
+            "results-{SM}/{SM}.{W}.{F}_figures/pngs/{SM}.{W}.{F}.facet.all.png",
             category="figures",
         ),
     conda:
@@ -437,7 +437,8 @@ rule make_R_figures:
         Rscript {params.script} \
             --bed {input.bed} \
             --threads {threads} \
-            --prefix {wildcards.SM}.{wildcards.W}.{wildcards.F}
+            --prefix {wildcards.SM}.{wildcards.W}.{wildcards.F} \
+            --output results-{wildcards.SM}
         """
 
 
@@ -454,7 +455,7 @@ rule cooler_strand:
         bed=rules.pair_end_bed.output.bed,
         fai=FAI,
     output:
-        cool="results/{SM}.{W}.{F}.strand.cool",
+        cool="results-{SM}/{SM}.{W}.{F}.strand.cool",
     conda:
         "envs/env.yaml"
     threads: 1
@@ -482,7 +483,7 @@ rule cooler_identity:
         bed=rules.pair_end_bed.output.bed,
         fai=FAI,
     output:
-        cool="results/{SM}.{W}.{F}.identity.cool",
+        cool="results-{SM}/{SM}.{W}.{F}.identity.cool",
     conda:
         "envs/env.yaml"
     log:
@@ -508,7 +509,7 @@ rule cooler_zoomify_i:
     input:
         i=rules.cooler_identity.output.cool,
     output:
-        i="results/{SM}.{W}.{F}.identity.mcool",
+        i="results-{SM}/{SM}.{W}.{F}.identity.mcool",
     conda:
         "envs/env.yaml"
     threads: 8
@@ -528,7 +529,7 @@ rule cooler_zoomify_s:
     input:
         s=rules.cooler_strand.output.cool,
     output:
-        s="results/{SM}.{W}.{F}.strand.mcool",
+        s="results-{SM}/{SM}.{W}.{F}.strand.mcool",
     conda:
         "envs/env.yaml"
     log:
@@ -548,7 +549,7 @@ rule bwa_index:
     input:
         fasta=FASTA,
     output:
-        done=touch("temp/bwa_ref_{SM}"),
+        done=touch("temp-{SM}/bwa_ref_{SM}"),
     conda:
         "envs/env.yaml"
     log:
@@ -556,16 +557,16 @@ rule bwa_index:
     threads: 1
     shell:
         """
-        bwa index -p temp/ref_{wildcards.SM} {input.fasta}
+        bwa index -p temp-{SM}/ref_{wildcards.SM} {input.fasta}
         """
 
 
 rule bwa_aln:
     input:
-        bwa_index_done="temp/bwa_ref_{SM}",
+        bwa_index_done="temp-{SM}/bwa_ref_{SM}",
         reads=rules.window_fa.output.fasta,
     output:
-        sam="results/output_{SM}_{W}.sam.gz",
+        sam="results-{SM}/output_{SM}_{W}.sam.gz",
     conda:
         "envs/env.yaml"
     log:
@@ -575,8 +576,8 @@ rule bwa_aln:
     threads: ALN_T
     shell:
         """
-        bwa aln -t {threads} temp/ref_{wildcards.SM} {input.reads} \
-            | bwa samse -n {params.num_dups} temp/ref_{wildcards.SM} - {input.reads} \
+        bwa aln -t {threads} temp-{SM}/ref_{wildcards.SM} {input.reads} \
+            | bwa samse -n {params.num_dups} temp-{SM}/ref_{wildcards.SM} - {input.reads} \
             | gzip > {output.sam}
         """
 
@@ -585,7 +586,7 @@ rule create_contacts:
     input:
         sam=rules.bwa_aln.output.sam,
     output:
-        contacts="results/contacts_{SM}_{W}.gz",
+        contacts="results-{SM}/contacts_{SM}_{W}.gz",
     conda:
         "envs/env.yaml"
     log:
@@ -605,7 +606,7 @@ rule cooler_density_d:
         contacts=rules.create_contacts.output.contacts,
         fai=FAI,
     output:
-        cool="results/{SM}.{W}.{CW}.density.cool",
+        cool="results-{SM}/{SM}.{W}.{CW}.density.cool",
     conda:
         "envs/env.yaml"
     log:
@@ -628,7 +629,7 @@ rule cooler_zoomify_d:
     input:
         d=rules.cooler_density_d.output.cool,
     output:
-        d="results/{SM}.{W}.{CW}.density.mcool",
+        d="results-{SM}/{SM}.{W}.{CW}.density.mcool",
     conda:
         "envs/env.yaml"
     threads: 8
