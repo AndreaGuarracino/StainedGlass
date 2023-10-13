@@ -36,7 +36,6 @@ CW = config.pop("cooler_window", int(W))
 ALN_T = config.pop("alnthreads", 4)
 F = config.pop("mm_f", 10000)
 S = config.pop("mm_s", int(W / 5))
-TEMP_DIR = config.pop("tempdir", "temp")
 SAMTOOLS_MEM = config.pop("samtools_mem", 1)
 SLIDE = config.pop("slide", 0)
 
@@ -50,15 +49,6 @@ if W < 500:
 elif SLIDE > 0:
     S = config.pop("mm_s", 100)
     MAP_PARAMS = "-ax map-ont --secondary=no"
-
-if TEMP_DIR != "temp-{SM}":
-    if os.path.exists("temp-{SM}"):
-        if os.path.realpath(f"temp-{SM}") == os.path.realpath(TEMP_DIR):
-            print("The temp-{SM} dir has already been linked.")
-        else:
-            sys.exit("temp-{SM}/ already in use, please move it before running.")
-    else:
-        shell("ln -s {TEMP_DIR} temp-{SM}")
 
 #
 # required arguments
